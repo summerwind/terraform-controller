@@ -1,0 +1,31 @@
+version: '2'
+
+vars:
+  NAME: terraform-controller
+  VERSION: 0.1.0
+
+tasks:
+  build:
+    deps: [test]
+    cmds:
+    - CGO_ENABLED=0 go build .
+  test:
+    cmds:
+    - go vet ./...
+    - go test -v -coverprofile=cover.out ./...
+  cover:
+    deps: [test]
+    cmds:
+    - go tool cover -html=cover.out
+  clean:
+    cmds:
+    - rm -rf terraform-controller cover.out
+  build-container:
+    cmds:
+    - docker build -t summerwind/{{.NAME}}:latest -t summerwind/{{.NAME}}:{{.VERSION}} .
+  push-container:
+    cmds:
+    - docker push summerwind/{{.NAME}}:latest
+  push-release-container:
+    cmds:
+    - docker push summerwind/{{.NAME}}:{{.VERSION}}

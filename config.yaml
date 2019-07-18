@@ -1,0 +1,27 @@
+resources:
+- group: terraform.summerwind.dev
+  version: v1alpha1
+  kind: Run
+  reconciler:
+    exec:
+      command: /bin/terraform-controller
+      args: ["run", "reconcile"]
+      timeout: 3600s
+  finalizer:
+    exec:
+      command: /bin/terraform-controller
+      args: ["run", "finalize"]
+      timeout: 3600s
+  validator:
+    exec:
+      command: ./terraform-controller
+      args: ["run", "validate"]
+      timeout: 60s
+      debug: true
+  resyncPeriod: 1h
+
+webhook:
+  port: 443
+  tls:
+    certFile: /etc/tls/tls.crt
+    keyFile: /etc/tls/tls.key

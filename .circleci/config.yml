@@ -1,0 +1,18 @@
+version: 2
+jobs:
+  build:
+    docker:
+    - image: summerwind/toolbox:latest
+    steps:
+    - checkout
+    - setup_remote_docker:
+        version: 18.09.3
+    - run:
+        name: Build container
+        command: task build-container
+
+workflows:
+  version: 2
+  main:
+    jobs:
+    - build

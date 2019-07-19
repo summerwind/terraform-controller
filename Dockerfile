@@ -1,6 +1,6 @@
 FROM ubuntu:18.04 as base
 
-ENV TERRAFORM_VERSION=0.12.4
+ENV TERRAFORM_VERSION=0.12.5
 
 RUN apt update && apt install -y ca-certificates unzip curl gnupg
 

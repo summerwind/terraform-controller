@@ -36,20 +36,22 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 		checksum   string
 	)
 
+	r := state.Object
+	err = r.Validate()
+	if err != nil {
+		log(r, "Invalid resource")
+		r.Status.Fail(ReasonInvalid, err.Error())
+		return state, nil
+	}
+
 	dir, err := ioutil.TempDir("", "terraform-controller")
 	if err != nil {
+		log(r, "Failed to create temp directory: %v", err)
 		return nil, err
 	}
 	defer os.RemoveAll(dir)
 
 	workingDir = dir
-
-	r := state.Object
-	err = r.Validate()
-	if err != nil {
-		r.Status.Fail(ReasonInvalid, err.Error())
-		return state, nil
-	}
 
 	if r.Spec.Source != nil {
 		var checkout bool
@@ -60,6 +62,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 
 			commit, err := g.Checkout(r.Spec.Source.Git.URL, r.Spec.Source.Git.Revision)
 			if err != nil {
+				log(r, "Git error: %v", err)
 				r.Status.Fail(ReasonGitError, err.Error())
 				return state, nil
 			}
@@ -70,6 +73,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 		}
 
 		if !checkout {
+			log(r, "Invalid resource")
 			r.Status.Fail(ReasonInvalid, "source is not specified")
 			return state, nil
 		}
@@ -81,6 +85,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 	} else {
 		err := ioutil.WriteFile(filepath.Join(dir, "main.tf"), []byte(r.Spec.Content), 0644)
 		if err != nil {
+			log(r, "Failed to write configuration file: %v", err)
 			return nil, err
 		}
 
@@ -93,6 +98,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 
 	err = tf.Init()
 	if err != nil {
+		log(r, "Terraform initialization failed: %v", err)
 		r.Status.Fail(ReasonTerraformError, err.Error())
 		return state, nil
 	}
@@ -101,6 +107,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 	if r.Spec.Workspace != "" {
 		err = tf.SelectWorkspace(r.Spec.Workspace)
 		if err != nil {
+			log(r, "Terraform workspace error: %v", err)
 			r.Status.Fail(ReasonTerraformError, err.Error())
 			return state, nil
 		}
@@ -109,6 +116,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 
 	err = tf.Validate()
 	if err != nil {
+		log(r, "Validation failed: %v", err)
 		r.Status.Fail(ReasonValidationError, err.Error())
 		return state, err
 	}
@@ -118,6 +126,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 		if r.Spec.Destroy {
 			err := tf.Destroy(r.Spec.Vars)
 			if err != nil {
+				log(r, "Destroy failed: %v", err)
 				r.Status.Fail(ReasonDestroyFailed, err.Error())
 				state.Requeue = true
 				return state, nil
@@ -128,6 +137,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 	} else {
 		changed, err := tf.Plan(r.Spec.Vars)
 		if err != nil {
+			log(r, "Plan failed: %v", err)
 			r.Status.Fail(ReasonPlanFailed, err.Error())
 			return state, nil
 		}
@@ -138,6 +148,7 @@ func ReconcileRun(state *v1alpha1.RunState, finalize bool) (*v1alpha1.RunState, 
 
 			err := tf.Apply(r.Spec.Vars)
 			if err != nil {
+				log(r, "Apply failed: %v", err)
 				r.Status.Fail(ReasonApplyFailed, err.Error())
 				return state, nil
 			}
